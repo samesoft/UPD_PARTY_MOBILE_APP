@@ -1,4 +1,4 @@
-# MGS Owners
+# UPD party
 
 A new Flutter project.
 

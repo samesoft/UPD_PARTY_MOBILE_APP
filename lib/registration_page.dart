@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:pp_party/login_page.dart';
+import 'package:upd_party/login_page.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/services.dart';
 
 import 'constants/constants.dart';
 
@@ -38,39 +37,51 @@ class _RegistrationPageState extends State<RegistrationPage> {
   List<String> genders = ['Male', 'Female'];
   String? selectedGender;
 
+  // Dynamic dropdown options
+  List<Map<String, dynamic>> districts = [];
+  List<Map<String, dynamic>> ageGroups = [];
+  List<Map<String, dynamic>> eduLevels = [];
+  List<Map<String, dynamic>> partyRoles = [];
+  List<Map<String, dynamic>> membershipLevels = [];
 
-  // Static dropdown options
-  final List<Map<String, dynamic>> districts = [
-    {'id': 1, 'name': 'District A'},
-    {'id': 2, 'name': 'District B'},
-    {'id': 3, 'name': 'District C'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    fetchDropdownData();
+  }
 
-  final List<Map<String, dynamic>> ageGroups = [
-    {'id': 1, 'name': '18-25'},
-    {'id': 2, 'name': '26-35'},
-    {'id': 3, 'name': '36-45'},
-    {'id': 4, 'name': '46+'},
-  ];
+  Future<void> fetchDropdownData() async {
+    try {
+      final districtResponse = await http.get(Uri.parse('${devBaseUrl}api/district'));
+      final ageGroupResponse = await http.get(Uri.parse('${devBaseUrl}api/age-groups'));
+      final eduLevelResponse = await http.get(Uri.parse('${devBaseUrl}api/education-level'));
+      final partyRoleResponse = await http.get(Uri.parse('${devBaseUrl}api/party-role'));
+      final membershipLevelResponse = await http.get(Uri.parse('${devBaseUrl}api/membership-level'));
 
-  final List<Map<String, dynamic>> eduLevels = [
-    {'id': 1, 'name': 'High School'},
-    {'id': 2, 'name': 'Bachelor\'s Degree'},
-    {'id': 3, 'name': 'Master\'s Degree'},
-    {'id': 4, 'name': 'PhD'},
-  ];
-
-  final List<Map<String, dynamic>> partyRoles = [
-    {'id': 1, 'name': 'Member'},
-    {'id': 2, 'name': 'Volunteer'},
-    {'id': 3, 'name': 'Leader'},
-  ];
-
-  final List<Map<String, dynamic>> membershipLevels = [
-    {'id': 1, 'name': 'Basic'},
-    {'id': 2, 'name': 'Premium'},
-    {'id': 3, 'name': 'VIP'},
-  ];
+      if (districtResponse.statusCode == 200 &&
+          ageGroupResponse.statusCode == 200 &&
+          eduLevelResponse.statusCode == 200 &&
+          partyRoleResponse.statusCode == 200 &&
+          membershipLevelResponse.statusCode == 200) {
+        setState(() {
+          districts = List<Map<String, dynamic>>.from(jsonDecode(districtResponse.body)['data']);
+          ageGroups = List<Map<String, dynamic>>.from(jsonDecode(ageGroupResponse.body)['data']);
+          eduLevels = List<Map<String, dynamic>>.from(jsonDecode(eduLevelResponse.body)['data']);
+          partyRoles = List<Map<String, dynamic>>.from(jsonDecode(partyRoleResponse.body)['data']);
+          membershipLevels = List<Map<String, dynamic>>.from(jsonDecode(membershipLevelResponse.body)['data']);
+        });
+      } else {
+        throw Exception('Failed to load dropdown data');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to load dropdown data: ${e.toString()}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   void togglePasswordVisibility() {
     setState(() {
@@ -85,91 +96,116 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   Future<void> register() async {
-    if (!_formKey.currentState!.validate()) {
+  if (!_formKey.currentState!.validate()) {
+    return;
+  }
+
+  setState(() {
+    isLoading = true;
+  });
+
+  try {
+    // Ensure all required fields are selected
+    if (selectedDistrict == null ||
+        selectedAgeGroup == null ||
+        selectedEduLevel == null ||
+        selectedPartyRole == null ||
+        selectedMembershipLevel == null ||
+        selectedGender == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all required fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
-    print(widget.phone);
+    // Find the selected party role name
+    final partyRoleName = partyRoles.firstWhere(
+      (role) => role['party_role_id'].toString() == selectedPartyRole,
+    )['party_role'];
 
+    final response = await http.post(
+      Uri.parse('${devBaseUrl}api/members'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'first_name': firstNameController.text.trim(),
+        'last_name': lastNameController.text.trim(),
+        'email': emailController.text.trim(),
+        'password_hash': passwordController.text.trim(),
+        'middle_name': middleNameController.text.trim(),
+        'mobile': widget.phone.trim(),
+        'district_id': selectedDistrict,
+        'age_group_id': selectedAgeGroup,
+        'edu_level_id': selectedEduLevel,
+        'party_role_id': selectedPartyRole,
+        'party_role': partyRoleName,
+        'memb_level_id': selectedMembershipLevel,
+        'gender': selectedGender,
+        'role_id': 1
+      }),
+    );
+
+    Map<String, dynamic> data;
     try {
-      final response = await http.post(
-        Uri.parse('${devBaseUrl}api/members'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'first_name': firstNameController.text.trim(),
-          'last_name': lastNameController.text.trim(),
-          'email': emailController.text.trim(),
-          'password_hash': passwordController.text.trim(),
-          'middle_name': middleNameController.text.trim(),
-          'mobile': widget.phone.trim(),
-          'district_id': selectedDistrict,
-          'age_group_id': selectedAgeGroup,
-          'edu_level_id': selectedEduLevel,
-          'party_role_id': selectedPartyRole,
-          'memb_level_id': selectedMembershipLevel,
-          'gender': selectedGender,
-        }),
-      );
+      data = jsonDecode(response.body);
+    } catch (_) {
+      throw const FormatException("Unexpected response format");
+    }
 
-      Map<String, dynamic> data;
-      try {
-        data = jsonDecode(response.body);
-      } catch (_) {
-        throw const FormatException("Unexpected response format");
-      }
-
-      if (response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Registration successful, login to continue'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const LoginPage(),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['error'] ?? 'Registration failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } on FormatException {
+    if (response.statusCode == 201) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content:
-              Text("Unexpected response from the server. Please try again later."),
-          backgroundColor: Colors.red,
+          content: Text('Registration successful, login to continue'),
+          backgroundColor: Colors.green,
         ),
       );
-    } on SocketException {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Network error. Please check your internet connection."),
-          backgroundColor: Colors.red,
+
+      // Wait for 2 seconds before navigating to the login page
+      await Future.delayed(const Duration(seconds: 2));
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LoginPage(),
         ),
       );
-    } catch (e) {
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("An unexpected error occurred: ${e.toString()}"),
+          content: Text(data['error'] ?? 'Registration failed'),
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
     }
+  } on FormatException {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Unexpected response from the server. Please try again later."),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } on SocketException {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Network error. Please check your internet connection."),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("An unexpected error occurred: ${e.toString()}"),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    setState(() {
+      isLoading = false;
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +244,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     ),
                   ),
                   const SizedBox(height: 30),
+                  // First Name
                   TextFormField(
                     controller: firstNameController,
                     decoration: InputDecoration(
@@ -226,6 +263,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Last Name
                   TextFormField(
                     controller: lastNameController,
                     decoration: InputDecoration(
@@ -244,6 +282,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Email
                   TextFormField(
                     controller: emailController,
                     decoration: InputDecoration(
@@ -265,6 +304,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Password
                   TextFormField(
                     controller: passwordController,
                     obscureText: notVisiblePassword,
@@ -295,6 +335,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Confirm Password
                   TextFormField(
                     controller: confirmPasswordController,
                     obscureText: notVisibleConfirmPassword,
@@ -325,6 +366,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Middle Name (Optional)
                   TextFormField(
                     controller: middleNameController,
                     decoration: InputDecoration(
@@ -337,6 +379,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  // District Dropdown
                   DropdownButtonFormField<String>(
                     value: selectedDistrict,
                     decoration: InputDecoration(
@@ -348,8 +391,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     ),
                     items: districts.map((district) {
                       return DropdownMenuItem<String>(
-                        value: district['id'].toString(),
-                        child: Text(district['name']),
+                        value: district['district_id'].toString(),
+                        child: Text(district['district']),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -365,6 +408,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Age Group Dropdown
                   DropdownButtonFormField<String>(
                     value: selectedAgeGroup,
                     decoration: InputDecoration(
@@ -377,7 +421,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     items: ageGroups.map((ageGroup) {
                       return DropdownMenuItem<String>(
                         value: ageGroup['id'].toString(),
-                        child: Text(ageGroup['name']),
+                        child: Text(ageGroup['age_group']),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -393,6 +437,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Education Level Dropdown
                   DropdownButtonFormField<String>(
                     value: selectedEduLevel,
                     decoration: InputDecoration(
@@ -404,8 +449,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     ),
                     items: eduLevels.map((eduLevel) {
                       return DropdownMenuItem<String>(
-                        value: eduLevel['id'].toString(),
-                        child: Text(eduLevel['name']),
+                        value: eduLevel['edu_level_id'].toString(),
+                        child: Text(eduLevel['educ_level']),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -421,6 +466,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Party Role Dropdown
                   DropdownButtonFormField<String>(
                     value: selectedPartyRole,
                     decoration: InputDecoration(
@@ -432,8 +478,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     ),
                     items: partyRoles.map((partyRole) {
                       return DropdownMenuItem<String>(
-                        value: partyRole['id'].toString(),
-                        child: Text(partyRole['name']),
+                        value: partyRole['party_role_id'].toString(),
+                        child: Text(partyRole['party_role']),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -449,6 +495,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Membership Level Dropdown
                   DropdownButtonFormField<String>(
                     value: selectedMembershipLevel,
                     decoration: InputDecoration(
@@ -477,35 +524,36 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  // Gender Dropdown
                   DropdownButtonFormField<String>(
-  value: selectedGender,
-  decoration: InputDecoration(
-    labelText: 'Gender',
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8.0),
-    ),
-    prefixIcon: const Icon(Icons.person),
-  ),
-  items: genders.map((gender) {
-    return DropdownMenuItem<String>(
-      value: gender,
-      child: Text(gender),
-    );
-  }).toList(),
-  onChanged: (value) {
-    setState(() {
-      selectedGender = value;
-    });
-  },
-  validator: (value) {
-    if (value == null || value.isEmpty) {
-      return 'Gender is required';
-    }
-    return null;
-  },
-),
-
+                    value: selectedGender,
+                    decoration: InputDecoration(
+                      labelText: 'Gender',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      prefixIcon: const Icon(Icons.person),
+                    ),
+                    items: genders.map((gender) {
+                      return DropdownMenuItem<String>(
+                        value: gender,
+                        child: Text(gender),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedGender = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Gender is required';
+                      }
+                      return null;
+                    },
+                  ),
                   const SizedBox(height: 30),
+                  // Register Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

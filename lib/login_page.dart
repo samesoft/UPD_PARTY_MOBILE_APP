@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:country_code_picker/country_code_picker.dart';
-import 'package:pp_party/otp_screen.dart';
+import 'package:upd_party/otp_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:upd_party/registration_page.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -42,17 +43,15 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // Save login status, userId, and roleId in SharedPreferences
-  Future<void> _saveLoginStatus(String userId, String roleId) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('userId', userId);
-    await prefs.setString('roleId', roleId);
-    print("Saved userId: $userId");
-    print("Saved RoleId: $roleId");
-  }
+  Future<void> _saveLoginStatus(String memberId, String roleId) async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('isLoggedIn', true);
+  await prefs.setString('member_id', memberId);
+  await prefs.setString('role_id', roleId); // Save role ID
+}
 
   // HTTP Login Function
-  Future<void> login() async {
+Future<void> login() async {
   if (_formKey.currentState!.validate()) {
     setState(() {
       isLoading = true; // Start loading
@@ -60,19 +59,26 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('${devBaseUrl}api/users/login'), // Replace with your API URL
+        Uri.parse('${devBaseUrl}api/members/login'), // Replace with your API URL
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'login_Name': "$selectedCountryCode${phoneNumberController.text.trim()}",
-          'password': passwordController.text.trim(),
+          'mobile': "$selectedCountryCode${phoneNumberController.text.trim()}",
+          'password_hash': passwordController.text.trim(),
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['message'] == 'Login successful') {
-          await _saveLoginStatus(
-              data['userId'].toString(), data['roleId'].toString());
+          // Extract member_id and role_id from the response
+          String memberId = data['member_id'].toString();
+          String roleId = data['role_id'].toString(); // Assuming role_id is returned in the response
+          print("memberId: $memberId");
+          print("roleId: $roleId");
+
+          // Save the login status, member_id, and role_id
+          await _saveLoginStatus(memberId, roleId);
+
           Navigator.pushReplacement(context,
               MaterialPageRoute(builder: (context) {
             return const HomePage();
@@ -176,26 +182,26 @@ void _showSnackBar(String message) {
                     inputFormatters: [
                       FilteringTextInputFormatter
                           .digitsOnly, 
-                      LengthLimitingTextInputFormatter(4)
+                      // LengthLimitingTextInputFormatter(4)
                     ],
                       decoration: InputDecoration(
                         icon:
                             const Icon(Icons.lock_outline, color: Colors.grey),
-                        labelText: 'PIN',
+                        labelText: 'Password',
                         suffixIcon: IconButton(
                           icon: passwordIcon,
                           onPressed: togglePasswordVisibility,
                         ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'PIn is required';
-                        }
-                        if (value.length != 4) {
-                        return 'PIN must be exactly 4 digits';
-                      }
-                        return null;
-                      },
+                      // validator: (value) {
+                      //   if (value == null || value.trim().isEmpty) {
+                      //     return 'PIn is required';
+                      //   }
+                      //   if (value.length != 4) {
+                      //   return 'PIN must be exactly 4 digits';
+                      // }
+                      //   return null;
+                      // },
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(

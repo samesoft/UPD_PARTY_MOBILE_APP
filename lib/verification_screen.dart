@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:pp_party/registration_page.dart';
+import 'package:upd_party/registration_page.dart';
 import 'constants/constants.dart';
 
 class VerificationScreen extends StatefulWidget {

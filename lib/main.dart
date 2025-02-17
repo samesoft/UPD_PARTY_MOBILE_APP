@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pp_party/splash_screen.dart';
+import 'package:upd_party/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());

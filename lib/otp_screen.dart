@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:pp_party/login_page.dart';
+import 'package:upd_party/login_page.dart';
 import 'dart:convert';
-import 'package:pp_party/verification_screen.dart'; 
+import 'package:upd_party/verification_screen.dart'; 
 import 'constants/constants.dart'; 
 import 'dart:io';
 

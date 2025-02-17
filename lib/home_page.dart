@@ -5,6 +5,9 @@ import 'constants/constants.dart';
 import 'login_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
+import 'donation_screen.dart';
+import 'event_screen.dart';
+import 'registered_events_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,42 +26,47 @@ class _HomePageState extends State<HomePage> {
     _getUser();
   }
 
-  String? wardCode;
   String login = '';
   String phone = '';
-  String? streetNames;
+  String? memberId;
+  int? districtId;
 
   Future<void> _getUser() async {
     final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId');
+    memberId = prefs.getString('member_id');
+    print("memberId from homepage: $memberId");
 
-    if (userId == null) {
+    if (memberId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not found. Please sign up.')),
+        const SnackBar(content: Text('Member not found. Please sign up.')),
       );
       return;
     }
     try {
       final response = await http.get(
-        Uri.parse('${devBaseUrl}api/users/$userId'),
+        Uri.parse('${devBaseUrl}api/members/$memberId'),
       );
+      print("Response status: ${response.statusCode}");
+      print("Response body: ${response.body}");
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          final userData = data[0];
+        final memberData = jsonDecode(response.body);
+        print("memberdata: $memberData");
+        if (memberData != null) {
           setState(() {
-            login = userData['login'];
-            phone = userData['login_Name'];
-          });
+            login = memberData['first_name']; // Use first name or any other field
+            phone = memberData['mobile'];
+            districtId = memberData['district_id'];
+          }
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No user data found.')),
+            const SnackBar(content: Text('No member data found.')),
           );
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Failed to fetch user data: ${response.statusCode}')),
+              content: Text('Failed to fetch member data: ${response.statusCode}')),
         );
       }
     } on FormatException {
@@ -73,7 +81,7 @@ class _HomePageState extends State<HomePage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: ${e.toString()}')),
+        SnackBar(content: Text('An unexpected error occurred: ${e.toString()}')),
       );
     }
   }
@@ -93,10 +101,14 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Good Morning, $login 👋',
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black),
+          'Welcome, Comrade $login!',
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.blue[900], // UDP-themed color
         elevation: 0,
         actions: [
           GestureDetector(
@@ -126,10 +138,13 @@ class _HomePageState extends State<HomePage> {
               }
             },
             child: CircleAvatar(
-              backgroundColor: Colors.blue,
+              backgroundColor: Colors.white,
               child: Text(
                 login.isNotEmpty ? login[0].toUpperCase() : 'U',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.blue[900],
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -140,14 +155,14 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20),
         child: Column(
           children: [
-            // ** Welcome Card **
+            // ** Motivational Message Section **
             Container(
               width: size.width,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF0052D4), Color(0xFF6FB1FC)], // Cool Gradient
+                  colors: [Color(0xFF1E88E5), Color(0xFF1976D2)], // Blue Gradient
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -159,57 +174,154 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white24,
-                    child: Icon(Icons.person, size: 35, color: Colors.white),
-                  ),
-                  SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Welcome to PP Part",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          "Thank you for being a valuable member.",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: const Text(
+                "Together, we build a stronger Somalia!",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 20),
 
-            // ** Empty Space for Future Content **
+            // ** Dashboard Buttons **
             Expanded(
-              child: Center(
-                child: Text(
-                  "More features coming soon!",
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.bold,
+              child: GridView.count(
+                crossAxisCount: 2,
+                childAspectRatio: 1.5,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 13,
+                children: [
+                  CardButton(
+                    title: "Support the Cause",
+                    icon: Icons.volunteer_activism,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)], // Purple Gradient
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    onPressed: () {
+                      if (memberId != null  && phone.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DonationScreen(memberId: memberId!, phone: phone),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Member ID not found. Please log in again.')),
+                        );
+                      }
+                    },
                   ),
-                ),
+                  CardButton(
+                    title: "Upcoming Events",
+                    icon: Icons.event,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)], // Green Gradient
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    onPressed: () {
+                      if (districtId != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EventScreen(districtId: districtId!, memberId: memberId!),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('District ID not found. Please log in again.')),
+                        );
+                      }
+                    },
+                  ),
+                  CardButton(
+                    title: "Registered Events",
+                    icon: Icons.event_available,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFA726), Color(0xFFFB8C00)], // Orange Gradient
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    onPressed: () {
+                      if (memberId != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RegisteredEventsScreen(memberId: memberId!),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Member ID not found. Please log in again.')),
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class CardButton extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Gradient gradient;
+  final VoidCallback? onPressed;
+
+  const CardButton({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.gradient,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 40,
+                color: Colors.white,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

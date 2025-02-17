@@ -1,0 +1,2 @@
+C:/Users/hafto/Videos/PP_Party Mobile/UPD_PARTY_MOBILE_APP/android/app/.cxx/Debug/542z6r2v/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/hafto/Videos/PP_Party Mobile/UPD_PARTY_MOBILE_APP/android/app/.cxx/Debug/542z6r2v/arm64-v8a/CMakeFiles/rebuild_cache.dir
