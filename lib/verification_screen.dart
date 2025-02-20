@@ -44,7 +44,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
       try {
         data = jsonDecode(response.body);
       } catch (_) {
-        throw FormatException("Unexpected response format");
+        throw const FormatException("Unexpected response format");
       }
 
       if (response.statusCode == 200 && data['success'] != null) {

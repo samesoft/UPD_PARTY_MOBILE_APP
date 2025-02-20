@@ -28,6 +28,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   bool isLoading = false;
 
   // Dropdown values
+  String? selectedState;
   String? selectedDistrict;
   String? selectedAgeGroup;
   String? selectedEduLevel;
@@ -38,6 +39,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   String? selectedGender;
 
   // Dynamic dropdown options
+  List<Map<String, dynamic>> states = []; // New list for states
   List<Map<String, dynamic>> districts = [];
   List<Map<String, dynamic>> ageGroups = [];
   List<Map<String, dynamic>> eduLevels = [];
@@ -52,18 +54,21 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   Future<void> fetchDropdownData() async {
     try {
+      final stateResponse = await http.get(Uri.parse('${devBaseUrl}api/state/cleaned'));
       final districtResponse = await http.get(Uri.parse('${devBaseUrl}api/district'));
       final ageGroupResponse = await http.get(Uri.parse('${devBaseUrl}api/age-groups'));
       final eduLevelResponse = await http.get(Uri.parse('${devBaseUrl}api/education-level'));
       final partyRoleResponse = await http.get(Uri.parse('${devBaseUrl}api/party-role'));
       final membershipLevelResponse = await http.get(Uri.parse('${devBaseUrl}api/membership-level'));
 
-      if (districtResponse.statusCode == 200 &&
+      if (stateResponse.statusCode == 200 &&
+          districtResponse.statusCode == 200 &&
           ageGroupResponse.statusCode == 200 &&
           eduLevelResponse.statusCode == 200 &&
           partyRoleResponse.statusCode == 200 &&
           membershipLevelResponse.statusCode == 200) {
         setState(() {
+          states = List<Map<String, dynamic>>.from(jsonDecode(stateResponse.body)['data']); // Parse states
           districts = List<Map<String, dynamic>>.from(jsonDecode(districtResponse.body)['data']);
           ageGroups = List<Map<String, dynamic>>.from(jsonDecode(ageGroupResponse.body)['data']);
           eduLevels = List<Map<String, dynamic>>.from(jsonDecode(eduLevelResponse.body)['data']);
@@ -136,6 +141,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         'password_hash': passwordController.text.trim(),
         'middle_name': middleNameController.text.trim(),
         'mobile': widget.phone.trim(),
+        'state_id': selectedState,
         'district_id': selectedDistrict,
         'age_group_id': selectedAgeGroup,
         'edu_level_id': selectedEduLevel,
@@ -143,7 +149,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         'party_role': partyRoleName,
         'memb_level_id': selectedMembershipLevel,
         'gender': selectedGender,
-        'role_id': 1
+        'role_id': 2,
       }),
     );
 
@@ -163,7 +169,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
       );
 
       // Wait for 2 seconds before navigating to the login page
-      await Future.delayed(const Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 1));
 
       Navigator.pushReplacement(
         context,
@@ -377,6 +383,35 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       ),
                       prefixIcon: const Icon(Icons.person_outline),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  // State Dropdown
+                  DropdownButtonFormField<String>(
+                    value: selectedState,
+                    decoration: InputDecoration(
+                      labelText: 'State',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      prefixIcon: const Icon(Icons.location_city_outlined),
+                    ),
+                    items: states.map((state) {
+                      return DropdownMenuItem<String>(
+                        value: state['stateid'].toString(),
+                        child: Text(state['state']),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedState = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'State is required';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 20),
                   // District Dropdown

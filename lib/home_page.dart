@@ -1,13 +1,16 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:upd_party/create_event_page.dart';
+import 'package:upd_party/donation_screen.dart';
+import 'package:upd_party/event_screen.dart';
+import 'package:upd_party/registered_events_screen.dart';
+import 'package:upd_party/profile_page.dart'; // Import the profile page
 import 'constants/constants.dart';
 import 'login_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
-import 'donation_screen.dart';
-import 'event_screen.dart';
-import 'registered_events_screen.dart';
+import 'scanner_page.dart';
+import 'dart:convert';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,11 +33,20 @@ class _HomePageState extends State<HomePage> {
   String phone = '';
   String? memberId;
   int? districtId;
+  int? stateId;
+  int? roleId;
+  String? roleIdString;
+  String? fullProfilePhotoUrl;
 
   Future<void> _getUser() async {
     final prefs = await SharedPreferences.getInstance();
     memberId = prefs.getString('member_id');
+    roleIdString = prefs.getString('role_id');
+    if (roleIdString != null) {
+      roleId = int.tryParse(roleIdString!);
+    }
     print("memberId from homepage: $memberId");
+    print("role id from homepage: $roleId");
 
     if (memberId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -51,13 +63,22 @@ class _HomePageState extends State<HomePage> {
       if (response.statusCode == 200) {
         final memberData = jsonDecode(response.body);
         print("memberdata: $memberData");
+        print("ProfilePhotoUrl: ${memberData['data']['profile_photo_url']}");
+
         if (memberData != null) {
           setState(() {
-            login = memberData['first_name']; // Use first name or any other field
-            phone = memberData['mobile'];
-            districtId = memberData['district_id'];
-          }
-          );
+            login = memberData['data']['first_name'] ?? '';
+            phone = memberData['data']['mobile'] ?? '';
+            districtId = memberData['data']['district_id'];
+            stateId = memberData['data']['state_id'];
+            String profilePhotoUrl = memberData['data']['profile_photo_url'] ??
+                ''; // Handle null value
+            String backendBaseUrl = "https://upd-party-backend.samesoft.app";
+            fullProfilePhotoUrl = profilePhotoUrl.isNotEmpty
+                ? "$backendBaseUrl$profilePhotoUrl"
+                : null;
+          });
+          print("fullProfilePhotoUrl: $fullProfilePhotoUrl");
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No member data found.')),
@@ -66,7 +87,8 @@ class _HomePageState extends State<HomePage> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Failed to fetch member data: ${response.statusCode}')),
+              content:
+                  Text('Failed to fetch member data: ${response.statusCode}')),
         );
       }
     } on FormatException {
@@ -81,7 +103,8 @@ class _HomePageState extends State<HomePage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An unexpected error occurred: ${e.toString()}')),
+        SnackBar(
+            content: Text('An unexpected error occurred: ${e.toString()}')),
       );
     }
   }
@@ -108,30 +131,31 @@ class _HomePageState extends State<HomePage> {
             color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.blue[900], // UDP-themed color
+        backgroundColor: Colors.blue[900],
         elevation: 0,
         actions: [
           GestureDetector(
             onTap: () async {
               final bool shouldLogout = await showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text('Confirm Logout'),
-                    content: const Text('Are you sure you want to logout?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Logout'),
-                      ),
-                    ],
-                  );
-                },
-              ) ?? false;
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Confirm Logout'),
+                        content: const Text('Are you sure you want to logout?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Logout'),
+                          ),
+                        ],
+                      );
+                    },
+                  ) ??
+                  false;
 
               if (shouldLogout) {
                 await _logout();
@@ -139,13 +163,18 @@ class _HomePageState extends State<HomePage> {
             },
             child: CircleAvatar(
               backgroundColor: Colors.white,
-              child: Text(
-                login.isNotEmpty ? login[0].toUpperCase() : 'U',
-                style: TextStyle(
-                  color: Colors.blue[900],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              backgroundImage: fullProfilePhotoUrl != null
+                  ? NetworkImage(fullProfilePhotoUrl!)
+                  : null,
+              child: fullProfilePhotoUrl == null
+                  ? Text(
+                      login.isNotEmpty ? login[0].toUpperCase() : 'U',
+                      style: TextStyle(
+                        color: Colors.blue[900],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
             ),
           ),
           const SizedBox(width: 10),
@@ -162,7 +191,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF1E88E5), Color(0xFF1976D2)], // Blue Gradient
+                  colors: [Color(0xFF1E88E5), Color(0xFF1976D2)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -188,87 +217,204 @@ class _HomePageState extends State<HomePage> {
 
             // ** Dashboard Buttons **
             Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 1.5,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 13,
-                children: [
-                  CardButton(
-                    title: "Support the Cause",
-                    icon: Icons.volunteer_activism,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)], // Purple Gradient
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    onPressed: () {
-                      if (memberId != null  && phone.isNotEmpty) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DonationScreen(memberId: memberId!, phone: phone),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Member ID not found. Please log in again.')),
-                        );
-                      }
-                    },
-                  ),
-                  CardButton(
-                    title: "Upcoming Events",
-                    icon: Icons.event,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)], // Green Gradient
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    onPressed: () {
-                      if (districtId != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EventScreen(districtId: districtId!, memberId: memberId!),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('District ID not found. Please log in again.')),
-                        );
-                      }
-                    },
-                  ),
-                  CardButton(
-                    title: "Registered Events",
-                    icon: Icons.event_available,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFFA726), Color(0xFFFB8C00)], // Orange Gradient
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    onPressed: () {
-                      if (memberId != null) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => RegisteredEventsScreen(memberId: memberId!),
-                          ),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Member ID not found. Please log in again.')),
-                        );
-                      }
-                    },
-                  ),
-                ],
-              ),
+              child:
+                  roleId == 1 ? _buildAdminDashboard() : _buildUserDashboard(),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAdminDashboard() {
+    return GridView.count(
+      crossAxisCount: 2,
+      childAspectRatio: 1.5,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 13,
+      children: [
+        CardButton(
+          title: "Scan & Verify Ticket",
+          icon: Icons.qr_code_scanner,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ScannerPage(),
+              ),
+            );
+          },
+        ),
+        CardButton(
+          title: "Create Event",
+          icon: Icons.event,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onPressed: () {
+            if (memberId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      CreateEventPage(memberId: int.parse(memberId!)),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Member ID not found. Please log in again.')),
+              );
+            }
+          },
+        ),
+        CardButton(
+          title: "My Profile",
+          icon: Icons.person,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2196F3), Color(0xFF21CBF3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onPressed: () {
+            if (memberId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(),
+                ),
+              ).then((_) {
+                _getUser(); // Refresh profile data after returning
+              });
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Member ID not found. Please log in again.')),
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserDashboard() {
+    return GridView.count(
+      crossAxisCount: 2,
+      childAspectRatio: 1.5,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 13,
+      children: [
+        CardButton(
+          title: "Support the Cause",
+          icon: Icons.volunteer_activism,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6A1B9A), Color(0xFF9C27B0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onPressed: () {
+            if (memberId != null && phone.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      DonationScreen(memberId: memberId!, phone: phone),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Member ID not found. Please log in again.')),
+              );
+            }
+          },
+        ),
+        CardButton(
+          title: "Upcoming Events",
+          icon: Icons.event,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4CAF50), Color(0xFF8BC34A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onPressed: () {
+            if (stateId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      EventScreen(stateId: stateId!, memberId: memberId!),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content:
+                        Text('District ID not found. Please log in again.')),
+              );
+            }
+          },
+        ),
+        CardButton(
+          title: "Registered Events",
+          icon: Icons.event_available,
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFA726), Color(0xFFFB8C00)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onPressed: () {
+            if (memberId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      RegisteredEventsScreen(memberId: memberId!),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Member ID not found. Please log in again.')),
+              );
+            }
+          },
+        ),
+        CardButton(
+          title: "My Profile",
+          icon: Icons.person,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2196F3), Color(0xFF21CBF3)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          onPressed: () {
+            if (memberId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(),
+                ),
+              ).then((_) {
+                _getUser(); // Refresh profile data after returning
+              });
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Member ID not found. Please log in again.')),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 }

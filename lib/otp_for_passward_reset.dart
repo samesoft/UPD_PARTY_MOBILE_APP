@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:upd_party/login_page.dart';
+import 'package:upd_party/reset_password_page.dart';
 import 'dart:convert';
 import 'package:upd_party/verification_screen.dart'; 
 import 'constants/constants.dart'; 
 import 'dart:io';
 
-class OtpScreen extends StatefulWidget {
-  const OtpScreen({super.key});
+class OtpScreenForReset extends StatefulWidget {
+  const OtpScreenForReset({super.key});
 
   @override
-  State<OtpScreen> createState() => _OtpScreenState();
+  State<OtpScreenForReset> createState() => _OtpScreenForResetState();
 }
 
-class _OtpScreenState extends State<OtpScreen> {
+class _OtpScreenForResetState extends State<OtpScreenForReset> {
   final TextEditingController phoneNumberController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   String selectedCountryCode = "+252"; // Default country code
@@ -38,16 +39,15 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     final response = await http.post(
-      Uri.parse('${devBaseUrl}api/members/requestOtp'),
+      Uri.parse('${devBaseUrl}api/members/requestOtpForReset'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'phoneNumber': fullPhoneNumber}),
     );
-
     if (response.statusCode == 200) {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => VerificationScreen(phoneNumber: fullPhoneNumber),
+          builder: (context) => ResetPasswordPage(phoneNumber: fullPhoneNumber),
         ),
       );
     }

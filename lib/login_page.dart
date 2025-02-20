@@ -1,15 +1,14 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:country_code_picker/country_code_picker.dart';
-import 'package:upd_party/otp_screen.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:upd_party/registration_page.dart';
+import 'package:upd_party/otp_for_passward_reset.dart';
+import 'package:upd_party/otp_screen.dart';
 import 'dart:convert';
 import 'dart:io';
-
 import 'home_page.dart';
 import 'constants/constants.dart';
 
@@ -21,8 +20,7 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>(); // Correct usage
-
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
@@ -30,10 +28,10 @@ class _LoginPageState extends State<LoginPage> {
   Icon passwordIcon = const Icon(Icons.visibility);
   bool isLoading = false;
   String selectedCountryCode = "+252"; // Default country code
-  String appVersion = "Version 1.0";
+  String appVersion = "Version 1.5";
+  String? _deviceToken;
 
-  // Toggle password visibility
-  void togglePasswordVisibility() {
+ void togglePasswordVisibility() {
     setState(() {
       notVisiblePassword = !notVisiblePassword;
       passwordIcon = notVisiblePassword
@@ -41,74 +39,85 @@ class _LoginPageState extends State<LoginPage> {
           : const Icon(Icons.visibility_off);
     });
   }
+  @override
+  void initState() {
+    super.initState();
+    _getDeviceToken();
+  }
 
-  // Save login status, userId, and roleId in SharedPreferences
-  Future<void> _saveLoginStatus(String memberId, String roleId) async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('isLoggedIn', true);
-  await prefs.setString('member_id', memberId);
-  await prefs.setString('role_id', roleId); // Save role ID
-}
-
-  // HTTP Login Function
-Future<void> login() async {
-  if (_formKey.currentState!.validate()) {
-    setState(() {
-      isLoading = true; // Start loading
-    });
-
+  // Get device token from Firebase
+  Future<void> _getDeviceToken() async {
     try {
-      final response = await http.post(
-        Uri.parse('${devBaseUrl}api/members/login'), // Replace with your API URL
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'mobile': "$selectedCountryCode${phoneNumberController.text.trim()}",
-          'password_hash': passwordController.text.trim(),
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['message'] == 'Login successful') {
-          // Extract member_id and role_id from the response
-          String memberId = data['member_id'].toString();
-          String roleId = data['role_id'].toString(); // Assuming role_id is returned in the response
-          print("memberId: $memberId");
-          print("roleId: $roleId");
-
-          // Save the login status, member_id, and role_id
-          await _saveLoginStatus(memberId, roleId);
-
-          Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (context) {
-            return const HomePage();
-          }));
-        } else {
-          _showSnackBar(data['message'] ?? 'Login failed');
-        }
-      } else {
-        _showSnackBar('Invalid login credentials');
-      }
-    } on SocketException {
-      _showSnackBar('No internet connection. Please check your network.');
-    } on TimeoutException {
-      _showSnackBar('Request timed out. Please try again later.');
-    } on FormatException {
-      _showSnackBar('Invalid response format. Please try again later.');
-    } catch (e) {
-      _showSnackBar('An unexpected error occurred: ${e.toString()}');
-    } finally {
+      String? token = await FirebaseMessaging.instance.getToken();
+      print("device token: $token");
       setState(() {
-        isLoading = false; // Stop loading
+        _deviceToken = token;
       });
+    } catch (e) {
+      print("Failed to get device token: $e");
     }
   }
-}
 
-void _showSnackBar(String message) {
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-}
+  Future<void> _saveLoginStatus(String memberId, String roleId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
+    await prefs.setString('member_id', memberId);
+    await prefs.setString('role_id', roleId);
+  }
 
+  Future<void> login() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        isLoading = true;
+      });
+
+      try {
+        final response = await http.post(
+          Uri.parse('${devBaseUrl}api/members/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'mobile': phoneNumberController.text.trim(),
+            'password_hash': passwordController.text.trim(),
+            'device_token': _deviceToken, // Optional device token
+          }),
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['message'] == 'Login successful') {
+            String memberId = data['member_id'].toString();
+            String roleId = data['role_id'].toString();
+            await _saveLoginStatus(memberId, roleId);
+
+            Navigator.pushReplacement(context,
+                MaterialPageRoute(builder: (context) {
+              return const HomePage();
+            }));
+          } else {
+            _showSnackBar(data['message'] ?? 'Login failed');
+          }
+        } else {
+          _showSnackBar('Invalid login credentials');
+        }
+      } on SocketException {
+        _showSnackBar('No internet connection. Please check your network.');
+      } on TimeoutException {
+        _showSnackBar('Request timed out. Please try again later.');
+      } on FormatException {
+        _showSnackBar('Invalid response format. Please try again later.');
+      } catch (e) {
+        _showSnackBar('An unexpected error occurred: ${e.toString()}');
+      } finally {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,10 +133,9 @@ void _showSnackBar(String message) {
               child: Image.asset('assets/logo.jpg'),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 30.0, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 10),
               child: Form(
-                key: _formKey, // Properly referencing the form key
+                key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -149,9 +157,7 @@ void _showSnackBar(String message) {
                             });
                           },
                           initialSelection: 'SO',
-                          // favorite: const ['+252', 'SO'],
-                          showCountryOnly: false,
-                          countryFilter: const ['SO'],
+                          countryFilter: ['SO'],
                           showOnlyCountryWhenClosed: false,
                           alignLeft: false,
                         ),
@@ -177,36 +183,40 @@ void _showSnackBar(String message) {
                     TextFormField(
                       controller: passwordController,
                       obscureText: notVisiblePassword,
-                      keyboardType:
-                        TextInputType.number, // Restrict input to numbers
-                    inputFormatters: [
-                      FilteringTextInputFormatter
-                          .digitsOnly, 
-                      // LengthLimitingTextInputFormatter(4)
-                    ],
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       decoration: InputDecoration(
-                        icon:
-                            const Icon(Icons.lock_outline, color: Colors.grey),
+                        icon: const Icon(Icons.lock_outline, color: Colors.grey),
                         labelText: 'Password',
                         suffixIcon: IconButton(
                           icon: passwordIcon,
                           onPressed: togglePasswordVisibility,
                         ),
                       ),
-                      // validator: (value) {
-                      //   if (value == null || value.trim().isEmpty) {
-                      //     return 'PIn is required';
-                      //   }
-                      //   if (value.length != 4) {
-                      //   return 'PIN must be exactly 4 digits';
-                      // }
-                      //   return null;
-                      // },
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 5),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => const OtpScreenForReset()),
+                          );
+                        },
+                        child: const Text(
+                          "Forgot Password?",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
                     ElevatedButton(
-                      onPressed:
-                          isLoading ? null : login, // Disable button if loading
+                      onPressed: isLoading ? null : login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey[600],
                         disabledBackgroundColor: Colors.grey[600],
@@ -221,12 +231,11 @@ void _showSnackBar(String message) {
                               strokeWidth: 2.0,
                             )
                           : const Text(
-                              "Sign in", // Changed "Login" to "Sign in"
+                              "Sign in",
                               style: TextStyle(fontSize: 15, color: Colors.white),
-                              
                             ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () {
                         Navigator.push(
@@ -236,10 +245,8 @@ void _showSnackBar(String message) {
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors
-                            .white, // White background to match screenshot
-                        side: const BorderSide(
-                            color: Colors.black87), 
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.black87),
                         minimumSize: const Size.fromHeight(45),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -249,24 +256,25 @@ void _showSnackBar(String message) {
                         "Sign Up",
                         style: TextStyle(
                           fontSize: 15,
-                          color: Colors.black87, 
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 20.0),
+                        child: Text(
+                          appVersion,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            // App Version Placement (Bottom of Login Screen)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 20.0),
-              child: Text(
-                appVersion,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
