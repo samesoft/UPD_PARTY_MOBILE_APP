@@ -7,7 +7,7 @@
 
     
     <application
-        android:label="upd_party v_1.5"
+        android:label="upd_party v_1.7"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

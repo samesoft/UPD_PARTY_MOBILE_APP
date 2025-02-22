@@ -54,26 +54,33 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   Future<void> fetchDropdownData() async {
     try {
-      final stateResponse = await http.get(Uri.parse('${devBaseUrl}api/state/cleaned'));
-      final districtResponse = await http.get(Uri.parse('${devBaseUrl}api/district'));
-      final ageGroupResponse = await http.get(Uri.parse('${devBaseUrl}api/age-groups'));
-      final eduLevelResponse = await http.get(Uri.parse('${devBaseUrl}api/education-level'));
-      final partyRoleResponse = await http.get(Uri.parse('${devBaseUrl}api/party-role'));
-      final membershipLevelResponse = await http.get(Uri.parse('${devBaseUrl}api/membership-level'));
+      final stateResponse =
+          await http.get(Uri.parse('${devBaseUrl}api/state/cleaned'));
+      final ageGroupResponse =
+          await http.get(Uri.parse('${devBaseUrl}api/age-groups'));
+      final eduLevelResponse =
+          await http.get(Uri.parse('${devBaseUrl}api/education-level'));
+      final partyRoleResponse =
+          await http.get(Uri.parse('${devBaseUrl}api/party-role'));
+      final membershipLevelResponse =
+          await http.get(Uri.parse('${devBaseUrl}api/membership-level'));
 
       if (stateResponse.statusCode == 200 &&
-          districtResponse.statusCode == 200 &&
           ageGroupResponse.statusCode == 200 &&
           eduLevelResponse.statusCode == 200 &&
           partyRoleResponse.statusCode == 200 &&
           membershipLevelResponse.statusCode == 200) {
         setState(() {
-          states = List<Map<String, dynamic>>.from(jsonDecode(stateResponse.body)['data']); // Parse states
-          districts = List<Map<String, dynamic>>.from(jsonDecode(districtResponse.body)['data']);
-          ageGroups = List<Map<String, dynamic>>.from(jsonDecode(ageGroupResponse.body)['data']);
-          eduLevels = List<Map<String, dynamic>>.from(jsonDecode(eduLevelResponse.body)['data']);
-          partyRoles = List<Map<String, dynamic>>.from(jsonDecode(partyRoleResponse.body)['data']);
-          membershipLevels = List<Map<String, dynamic>>.from(jsonDecode(membershipLevelResponse.body)['data']);
+          states = List<Map<String, dynamic>>.from(
+              jsonDecode(stateResponse.body)['data']);
+          ageGroups = List<Map<String, dynamic>>.from(
+              jsonDecode(ageGroupResponse.body)['data']);
+          eduLevels = List<Map<String, dynamic>>.from(
+              jsonDecode(eduLevelResponse.body)['data']);
+          partyRoles = List<Map<String, dynamic>>.from(
+              jsonDecode(partyRoleResponse.body)['data']);
+          membershipLevels = List<Map<String, dynamic>>.from(
+              jsonDecode(membershipLevelResponse.body)['data']);
         });
       } else {
         throw Exception('Failed to load dropdown data');
@@ -88,6 +95,46 @@ class _RegistrationPageState extends State<RegistrationPage> {
     }
   }
 
+  Future<void> fetchDistrictsByState(String stateId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('${devBaseUrl}api/district/districtByState/$stateId'),
+    );
+
+    if (response.statusCode == 200) {
+      // Parse the raw districts from the API response
+      final List<Map<String, dynamic>> rawDistricts =
+          List<Map<String, dynamic>>.from(jsonDecode(response.body)['data']);
+          print('rawDistricts: $rawDistricts');
+
+      // Remove duplicates based on district_id
+      final List<Map<String, dynamic>> uniqueDistricts = [];
+      final Set<String> seenDistrictIds = {};
+
+      for (final district in rawDistricts) {
+        final String districtId = district['district_id'].toString();
+        if (!seenDistrictIds.contains(districtId)) {
+          seenDistrictIds.add(districtId);
+          uniqueDistricts.add(district);
+        }
+      }
+
+      // Update the state with unique districts
+      setState(() {
+        districts = uniqueDistricts;
+      });
+    } else {
+      throw Exception('Failed to load districts');
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Failed to load districts: ${e.toString()}"),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
   void togglePasswordVisibility() {
     setState(() {
       notVisiblePassword = !notVisiblePassword;
@@ -101,117 +148,120 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   Future<void> register() async {
-  if (!_formKey.currentState!.validate()) {
-    return;
-  }
-
-  setState(() {
-    isLoading = true;
-  });
-
-  try {
-    // Ensure all required fields are selected
-    if (selectedDistrict == null ||
-        selectedAgeGroup == null ||
-        selectedEduLevel == null ||
-        selectedPartyRole == null ||
-        selectedMembershipLevel == null ||
-        selectedGender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Find the selected party role name
-    final partyRoleName = partyRoles.firstWhere(
-      (role) => role['party_role_id'].toString() == selectedPartyRole,
-    )['party_role'];
+    setState(() {
+      isLoading = true;
+    });
 
-    final response = await http.post(
-      Uri.parse('${devBaseUrl}api/members'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'first_name': firstNameController.text.trim(),
-        'last_name': lastNameController.text.trim(),
-        'email': emailController.text.trim(),
-        'password_hash': passwordController.text.trim(),
-        'middle_name': middleNameController.text.trim(),
-        'mobile': widget.phone.trim(),
-        'state_id': selectedState,
-        'district_id': selectedDistrict,
-        'age_group_id': selectedAgeGroup,
-        'edu_level_id': selectedEduLevel,
-        'party_role_id': selectedPartyRole,
-        'party_role': partyRoleName,
-        'memb_level_id': selectedMembershipLevel,
-        'gender': selectedGender,
-        'role_id': 2,
-      }),
-    );
-
-    Map<String, dynamic> data;
     try {
-      data = jsonDecode(response.body);
-    } catch (_) {
-      throw const FormatException("Unexpected response format");
-    }
+      // Ensure all required fields are selected
+      if (selectedState == null ||
+          selectedDistrict == null ||
+          selectedAgeGroup == null ||
+          selectedEduLevel == null ||
+          selectedPartyRole == null ||
+          selectedMembershipLevel == null ||
+          selectedGender == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill in all required fields'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
 
-    if (response.statusCode == 201) {
+      // Find the selected party role name
+      final partyRoleName = partyRoles.firstWhere(
+        (role) => role['party_role_id'].toString() == selectedPartyRole,
+      )['party_role'];
+
+      final response = await http.post(
+        Uri.parse('${devBaseUrl}api/members'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'first_name': firstNameController.text.trim(),
+          'last_name': lastNameController.text.trim(),
+          'email': emailController.text.trim(),
+          'password_hash': passwordController.text.trim(),
+          'middle_name': middleNameController.text.trim(),
+          'mobile': widget.phone.trim(),
+          'state_id': selectedState,
+          'district_id': selectedDistrict,
+          'age_group_id': selectedAgeGroup,
+          'edu_level_id': selectedEduLevel,
+          'party_role_id': selectedPartyRole,
+          'party_role': partyRoleName,
+          'memb_level_id': selectedMembershipLevel,
+          'gender': selectedGender,
+          'role_id': 2,
+        }),
+      );
+
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        throw const FormatException("Unexpected response format");
+      }
+
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration successful, login to continue'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Wait for 2 seconds before navigating to the login page
+        await Future.delayed(const Duration(seconds: 1));
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const LoginPage(),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['error'] ?? 'Registration failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } on FormatException {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registration successful, login to continue'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Wait for 2 seconds before navigating to the login page
-      await Future.delayed(const Duration(seconds: 1));
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const LoginPage(),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(data['error'] ?? 'Registration failed'),
+          content: Text(
+              "Unexpected response from the server. Please try again later."),
           backgroundColor: Colors.red,
         ),
       );
+    } on SocketException {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text("Network error. Please check your internet connection."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("An unexpected error occurred: ${e.toString()}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
-  } on FormatException {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Unexpected response from the server. Please try again later."),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } on SocketException {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Network error. Please check your internet connection."),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("An unexpected error occurred: ${e.toString()}"),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } finally {
-    setState(() {
-      isLoading = false;
-    });
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -219,10 +269,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         title: const Text(
           'Register',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        backgroundColor: Colors.grey[600],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -233,12 +283,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                   Text(
                     'Create Account',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: Colors.blue[900],
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -303,7 +353,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       if (value == null || value.isEmpty) {
                         return 'Email is required';
                       }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                          .hasMatch(value)) {
                         return 'Enter a valid email address';
                       }
                       return null;
@@ -404,7 +455,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     onChanged: (value) {
                       setState(() {
                         selectedState = value;
+                        selectedDistrict =
+                            null; // Reset the selected district when state changes
                       });
+                      fetchDistrictsByState(
+                          value!); // Fetch districts based on the selected state
                     },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -415,33 +470,40 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   ),
                   const SizedBox(height: 20),
                   // District Dropdown
-                  DropdownButtonFormField<String>(
-                    value: selectedDistrict,
-                    decoration: InputDecoration(
-                      labelText: 'District',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      prefixIcon: const Icon(Icons.location_on_outlined),
-                    ),
-                    items: districts.map((district) {
-                      return DropdownMenuItem<String>(
-                        value: district['district_id'].toString(),
-                        child: Text(district['district']),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedDistrict = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'District is required';
-                      }
-                      return null;
-                    },
-                  ),
+                  const SizedBox(height: 20),
+// District Dropdown
+DropdownButtonFormField<String>(
+  value: selectedDistrict,
+  decoration: InputDecoration(
+    labelText: 'District',
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8.0),
+    ),
+    prefixIcon: const Icon(Icons.location_on_outlined),
+  ),
+  items: districts.map((district) {
+    return DropdownMenuItem<String>(
+      value: district['district_id'].toString(),
+      child: Text(district['district']),
+    );
+  }).toList(),
+  onChanged: selectedState != null
+      ? (value) {
+          setState(() {
+            selectedDistrict = value;
+          });
+        }
+      : null,
+  validator: (value) {
+    if (selectedState == null) {
+      return 'Please select a state first';
+    }
+    if (value == null || value.isEmpty) {
+      return 'District is required';
+    }
+    return null;
+  },
+),
                   const SizedBox(height: 20),
                   // Age Group Dropdown
                   DropdownButtonFormField<String>(
@@ -594,7 +656,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     child: ElevatedButton(
                       onPressed: isLoading ? null : register,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[600],
+                        backgroundColor:  Colors.blue[900],
                         disabledBackgroundColor: Colors.grey[600],
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(

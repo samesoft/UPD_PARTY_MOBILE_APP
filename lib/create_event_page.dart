@@ -146,7 +146,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Event'),
-        backgroundColor: Colors.blue[900],
         elevation: 0,
       ),
       body: Padding(

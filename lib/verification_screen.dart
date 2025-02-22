@@ -96,10 +96,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
       appBar: AppBar(
         title: const Text(
           "Enter OTP",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        backgroundColor: Colors.grey[600],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -110,11 +109,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                   Text(
                     "Verify your phone number",
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
+                      color: Colors.blue[900]
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -148,8 +148,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     child: ElevatedButton(
                       onPressed: isLoading ? null : verifyOtp,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[600],
-                        disabledBackgroundColor: Colors.grey[600],
+                        backgroundColor: Colors.blue[900],
+                        disabledBackgroundColor: Colors.blue[900],
                         minimumSize: const Size.fromHeight(50),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),

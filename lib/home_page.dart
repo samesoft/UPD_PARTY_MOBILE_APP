@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'scanner_page.dart';
 import 'dart:convert';
+import 'admin_event_management_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -45,8 +46,8 @@ class _HomePageState extends State<HomePage> {
     if (roleIdString != null) {
       roleId = int.tryParse(roleIdString!);
     }
-    print("memberId from homepage: $memberId");
-    print("role id from homepage: $roleId");
+    // print("memberId from homepage: $memberId");
+    // print("role id from homepage: $roleId");
 
     if (memberId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,12 +59,12 @@ class _HomePageState extends State<HomePage> {
       final response = await http.get(
         Uri.parse('${devBaseUrl}api/members/$memberId'),
       );
-      print("Response status: ${response.statusCode}");
-      print("Response body: ${response.body}");
+      // print("Response status: ${response.statusCode}");
+      // print("Response body: ${response.body}");
       if (response.statusCode == 200) {
         final memberData = jsonDecode(response.body);
-        print("memberdata: $memberData");
-        print("ProfilePhotoUrl: ${memberData['data']['profile_photo_url']}");
+        // print("memberdata: $memberData");
+        // print("ProfilePhotoUrl: ${memberData['data']['profile_photo_url']}");
 
         if (memberData != null) {
           setState(() {
@@ -78,7 +79,7 @@ class _HomePageState extends State<HomePage> {
                 ? "$backendBaseUrl$profilePhotoUrl"
                 : null;
           });
-          print("fullProfilePhotoUrl: $fullProfilePhotoUrl");
+          // print("fullProfilePhotoUrl: $fullProfilePhotoUrl");
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No member data found.')),
@@ -124,7 +125,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Welcome, Comrade $login!',
+          'Welcome $login!',
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
@@ -275,6 +276,23 @@ class _HomePageState extends State<HomePage> {
             }
           },
         ),
+        CardButton(
+        title: "Manage Events",
+        icon: Icons.manage_history,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFA726), Color(0xFFFB8C00)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdminEventManagementScreen(),
+            ),
+          );
+        },
+      ),
         CardButton(
           title: "My Profile",
           icon: Icons.person,

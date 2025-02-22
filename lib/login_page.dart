@@ -28,7 +28,7 @@ class _LoginPageState extends State<LoginPage> {
   Icon passwordIcon = const Icon(Icons.visibility);
   bool isLoading = false;
   String selectedCountryCode = "+252"; // Default country code
-  String appVersion = "Version 1.5";
+  String appVersion = "Version 1.7";
   String? _deviceToken;
 
  void togglePasswordVisibility() {
@@ -218,8 +218,8 @@ class _LoginPageState extends State<LoginPage> {
                     ElevatedButton(
                       onPressed: isLoading ? null : login,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[600],
-                        disabledBackgroundColor: Colors.grey[600],
+                        backgroundColor: Colors.blue[900],
+                        disabledBackgroundColor: Colors.blue[900],
                         minimumSize: const Size.fromHeight(45),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
